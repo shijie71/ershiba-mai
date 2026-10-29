@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 无标题栏、沉浸式主题，WebView 全屏显示网页 -->
+    <style name="Theme.NoActionBar" parent="android:Theme.DeviceDefault.NoActionBar" />
+</resources>

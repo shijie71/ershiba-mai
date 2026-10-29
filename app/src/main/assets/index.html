@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f5f1e8">
+<!-- 本工作台为本地单文件 HTML（资料库 skill 未加载，走本地兜底方案），数据存于手机浏览器 localStorage -->
+<title>二十八脉 · 脉学小笺</title>
+<style>
+  :root{
+    --paper:#f5f1e8; --card:#fffdf8; --ink:#2b2b2b; --ink2:#5b5346;
+    --zhu:#b5341f; --zhu2:#d6583f; --qing:#3a6b5e; --line:#e3dccb;
+    --gold:#a9803c; --shadow:0 2px 10px rgba(80,60,30,.08);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--paper); color:var(--ink); line-height:1.6;
+    padding-bottom:calc(64px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  .topbar{
+    position:sticky; top:0; z-index:20; background:linear-gradient(180deg,#faf6ec,#f5f1e8);
+    border-bottom:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-top));
+    padding-top:calc(10px + env(safe-area-inset-top));
+  }
+  .topbar h1{font-size:19px; margin:0; letter-spacing:2px; font-weight:700;}
+  .topbar .sub{font-size:12px; color:var(--ink2); margin-top:2px;}
+  .sync{float:right; font-size:11px; color:var(--qing); border:1px solid var(--qing); border-radius:20px; padding:2px 9px; margin-top:2px; background:#eef4f1;}
+
+  .wrap{padding:14px 14px 20px; max-width:760px; margin:0 auto;}
+
+  /* 今日学习 */
+  .today{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px; box-shadow:var(--shadow); margin-bottom:14px;
+  }
+  .today .row{display:flex; gap:10px; flex-wrap:wrap;}
+  .stat{flex:1; min-width:90px; background:#f8f3e7; border:1px solid var(--line); border-radius:12px; padding:10px; text-align:center;}
+  .stat .n{font-size:22px; font-weight:700; color:var(--zhu);}
+  .stat .l{font-size:11px; color:var(--ink2); margin-top:2px;}
+  .picks{margin-top:12px;}
+  .picks .ttl{font-size:13px; color:var(--ink2); margin-bottom:6px;}
+  .pickchip{display:inline-block; background:#f0e9d8; border:1px solid var(--line); border-radius:18px; padding:5px 12px; margin:3px 6px 3px 0; font-size:13px; cursor:pointer; color:var(--ink);}
+  .pickchip:active{background:#e6ddc6;}
+  .review{margin-top:10px; border:1px dashed var(--zhu); border-radius:12px; padding:10px; background:#fbf0ec;}
+  .review .ttl{font-size:13px; color:var(--zhu); font-weight:700; margin-bottom:4px;}
+  .review .item{font-size:13px; color:var(--ink); cursor:pointer; padding:3px 0;}
+
+  /* 区块标题 */
+  .sech{font-size:15px; font-weight:700; margin:18px 2px 10px; color:var(--ink); letter-spacing:1px;}
+
+  /* 检索 + 分类 */
+  .search{width:100%; font-size:16px; padding:11px 14px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink); margin-bottom:10px;}
+  .search:focus{outline:none; border-color:var(--qing);}
+  .cats{display:flex; gap:7px; overflow-x:auto; padding-bottom:4px; margin-bottom:12px; -webkit-overflow-scrolling:touch;}
+  .cats::-webkit-scrollbar{height:0;}
+  .cat{flex:0 0 auto; padding:7px 13px; border-radius:18px; background:var(--card); border:1px solid var(--line); font-size:13px; color:var(--ink2); cursor:pointer; white-space:nowrap;}
+  .cat.on{background:var(--qing); color:#fff; border-color:var(--qing);}
+
+  /* 脉卡 */
+  .pulselist{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  @media(max-width:480px){ .pulselist{grid-template-columns:1fr;} }
+  .pcard{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; cursor:pointer; box-shadow:var(--shadow); position:relative;}
+  .pcard:active{transform:scale(.98);}
+  .pcard .pn{font-size:17px; font-weight:700; letter-spacing:1px;}
+  .pcard .py{font-size:11px; color:var(--ink2); margin-left:6px;}
+  .pcard .pc{display:inline-block; font-size:11px; color:#fff; background:var(--gold); border-radius:6px; padding:1px 7px; margin-top:5px;}
+  .pcard .pf{font-size:12.5px; color:var(--ink2); margin-top:7px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .pcard .star{position:absolute; top:10px; right:10px;}
+  .pcard .star svg{width:18px; height:18px;}
+  .empty{text-align:center; color:var(--ink2); padding:30px; font-size:14px;}
+
+  /* 底部导航 */
+  .nav{position:fixed; left:0; right:0; bottom:0; z-index:30; background:#faf6ec; border-top:1px solid var(--line);
+    display:flex; padding-bottom:env(safe-area-inset-bottom);}
+  .nav button{flex:1; background:none; border:none; padding:9px 0 7px; font-size:12px; color:var(--ink2); display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer;}
+  .nav button svg{width:22px; height:22px;}
+  .nav button.on{color:var(--zhu);}
+  .nav button.on svg{stroke:var(--zhu);}
+
+  section{display:none;}
+  section.on{display:block;}
+
+  /* 详情弹层 */
+  .mask{position:fixed; inset:0; background:rgba(40,30,15,.45); z-index:40; display:none; align-items:flex-end;}
+  .mask.on{display:flex;}
+  .sheet{background:var(--paper); width:100%; max-height:88vh; overflow-y:auto; border-radius:18px 18px 0 0; padding:18px 18px calc(24px + env(safe-area-inset-bottom)); animation:up .22s ease;}
+  @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:translateY(0);opacity:1}}
+  .sheet .x{float:right; font-size:22px; color:var(--ink2); cursor:pointer; line-height:1; border:none; background:none;}
+  .sheet h2{margin:0 0 2px; font-size:24px; letter-spacing:2px;}
+  .sheet .meta{font-size:12px; color:var(--ink2); margin-bottom:12px;}
+  .sheet .meta .pc{background:var(--gold); color:#fff; border-radius:6px; padding:1px 8px; margin-left:6px;}
+  .wavebox{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px; margin:6px 0 14px;}
+  .wavebox svg{width:100%; height:120px; display:block;}
+  .wavebox .cap{font-size:11px; color:var(--ink2); text-align:center; margin-top:2px;}
+  .block{margin:14px 0;}
+  .block .bt{font-size:14px; font-weight:700; color:var(--zhu); border-left:4px solid var(--zhu); padding-left:8px; margin-bottom:5px;}
+  .block .bd{font-size:14.5px; color:var(--ink); line-height:1.75;}
+  .sheet .acts{display:flex; gap:10px; margin-top:16px;}
+  .btn{flex:1; min-height:46px; border-radius:12px; font-size:15px; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--ink); display:flex; align-items:center; justify-content:center; gap:6px;}
+  .btn.primary{background:var(--zhu); color:#fff; border-color:var(--zhu);}
+  .btn:active{filter:brightness(.96);}
+  .btn svg{width:18px; height:18px;}
+
+  /* 测验 */
+  .qcard{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow);}
+  .qcard .prog{font-size:12px; color:var(--ink2); margin-bottom:10px;}
+  .qcard .qq{font-size:17px; font-weight:700; line-height:1.6; margin-bottom:14px;}
+  .opt{display:block; width:100%; text-align:left; background:#f8f3e7; border:1px solid var(--line); border-radius:12px; padding:13px 14px; margin-bottom:9px; font-size:14.5px; color:var(--ink); cursor:pointer; min-height:46px;}
+  .opt:active{background:#efe7d3;}
+  .opt.right{background:#e7f3ec; border-color:var(--qing); color:var(--qing); font-weight:700;}
+  .opt.wrong{background:#fbeae6; border-color:var(--zhu); color:var(--zhu);}
+  .opt:disabled{cursor:default;}
+  .explain{margin-top:12px; font-size:13.5px; color:var(--ink2); background:#f8f3e7; border-radius:10px; padding:10px; line-height:1.7; display:none;}
+  .explain.on{display:block;}
+  .qfooter{margin-top:12px; display:none;}
+  .qfooter.on{display:block;}
+
+  .bigbtn{display:block; width:100%; min-height:52px; background:var(--zhu); color:#fff; border:none; border-radius:14px; font-size:16px; cursor:pointer; margin:6px 0;}
+  .bigbtn:active{filter:brightness(.95);}
+  .ghostbtn{display:block; width:100%; min-height:46px; background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:12px; font-size:14px; cursor:pointer; margin:8px 0;}
+  .ghostbtn:active{background:#f0e9d8;}
+
+  /* 我的 */
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:14px; box-shadow:var(--shadow);}
+  .panel h3{margin:0 0 10px; font-size:15px; letter-spacing:1px;}
+  .favitem{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); cursor:pointer;}
+  .favitem:last-child{border-bottom:none;}
+  .favitem .fn{font-size:15px; font-weight:600;}
+  .favitem .fp{font-size:12px; color:var(--ink2);}
+  .noteitem{padding:9px 0; border-bottom:1px solid var(--line);}
+  .noteitem:last-child{border-bottom:none;}
+  .noteitem .nn{font-size:14px; font-weight:600; margin-bottom:3px;}
+  .noteitem .nt{font-size:13px; color:var(--ink2); white-space:pre-wrap; line-height:1.6;}
+  .ring{display:flex; align-items:center; gap:14px;}
+  .ring svg{width:88px; height:88px;}
+  .ring .rt{font-size:13px; color:var(--ink2);}
+  .ring .rt b{color:var(--zhu); font-size:18px;}
+  textarea.notein{width:100%; min-height:90px; font-size:15px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); resize:vertical; font-family:inherit;}
+  .danger{color:var(--zhu);}
+  .hint{font-size:11.5px; color:var(--ink2); line-height:1.7; margin-top:8px;}
+  .disclaimer{background:#fbf0ec; border:1px solid #eccfc6; border-radius:12px; padding:12px; font-size:12px; color:#8a3a28; line-height:1.7; margin:6px 0 14px;}
+  /* 触感学习 */
+  .feel-intro{font-size:13px; color:var(--ink2); background:#eef4f1; border:1px solid #cfe0d8; border-radius:12px; padding:11px 13px; line-height:1.7; margin-bottom:12px;}
+  .feel-intro b{color:var(--qing);}
+  .feel-sel{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin-bottom:14px; text-align:center;}
+  .feel-sel .fn{font-size:22px; font-weight:700; letter-spacing:2px;}
+  .feel-sel .tags{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:10px 0 4px;}
+  .feel-sel .tg{font-size:12px; background:#f0e9d8; border:1px solid var(--line); border-radius:16px; padding:4px 11px; color:var(--ink2);}
+  .feel-sel .tg b{color:var(--zhu);}
+  .feel-dot-wrap{display:flex; justify-content:center; align-items:center; height:118px; margin:8px 0;}
+  .feel-dot{width:74px; height:74px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #d6583f, #b5341f); box-shadow:0 6px 18px rgba(181,52,31,.3); transform:scale(1); transition:transform .05s linear, opacity .05s linear;}
+  .feel-meta{font-size:12px; color:var(--ink2); margin-top:2px;}
+  .feel-btn{display:block; width:100%; min-height:62px; border-radius:16px; border:none; background:var(--zhu); color:#fff; font-size:17px; font-weight:700; cursor:pointer; letter-spacing:1px; touch-action:none; user-select:none; -webkit-user-select:none;}
+  .feel-btn:active{filter:brightness(.95);}
+  .feel-btn.playing{background:var(--qing);}
+  .feel-loop{display:flex; align-items:center; gap:8px; justify-content:center; margin-top:12px; font-size:13px; color:var(--ink2);}
+  .feel-hint{font-size:11.5px; color:var(--ink2); margin-top:10px; line-height:1.65;}
+
+  .toast{position:fixed; left:50%; bottom:80px; transform:translateX(-50%); background:rgba(43,43,43,.92); color:#fff; font-size:13px; padding:9px 16px; border-radius:20px; z-index:60; opacity:0; transition:opacity .25s; pointer-events:none;}
+  .toast.on{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="sync" id="syncTag">本地存储</span>
+  <h1>二十八脉 · 脉学小笺</h1>
+  <div class="sub">中医脉学二十八脉 · 学习 · 自测 · 随身查</div>
+</div>
+
+<div class="wrap">
+
+  <!-- 今日学习（铁律5：置顶） -->
+  <div class="today" id="todayBox"></div>
+
+  <div class="disclaimer">
+    免责声明：本工具仅供学习中医脉学理论之用，所列为典籍中的脉象与理论主病，
+    <b>不能用于自我诊断、辨证或治疗</b>。身体不适请前往正规医疗机构，咨询执业中医师。
+  </div>
+
+  <!-- 学脉 -->
+  <section id="sec-learn" class="on">
+    <div class="sech">脉象百科</div>
+    <input class="search" id="searchInput" placeholder="搜脉名 / 拼音 / 关键字，如：浮、hua、表证" />
+    <div class="cats" id="catBox"></div>
+    <div class="pulselist" id="listBox"></div>
+  </section>
+
+  <!-- 测验 -->
+  <section id="sec-quiz">
+    <div class="sech">记忆测验</div>
+    <div id="quizBox"></div>
+  </section>
+
+  <!-- 触感学习 -->
+  <section id="sec-feel">
+    <div class="sech">触感学习</div>
+    <div class="feel-intro">这是 App 里最出彩的「摸脉」模块：用手机<b>振动马达</b>模拟不同脉象的<b>快慢、强弱、流利度</b>。先选一种脉，再<b>按住</b>下面的圆钮，闭上眼、把手机贴在指尖或掌心，用拇指感受节奏。安卓 Chrome 支持振动；若你的浏览器不支持，会自动改用画面节奏代替。</div>
+    <div id="feelSupportTop" class="feel-hint" style="margin-bottom:10px"></div>
+    <div class="cats" id="feelCatBox"></div>
+    <div class="pulselist" id="feelListBox"></div>
+    <div class="feel-sel" id="feelSel" style="display:none"></div>
+  </section>
+
+  <!-- 我的 -->
+  <section id="sec-mine">
+    <div class="sech">我的</div>
+    <div class="panel" id="mineStats"></div>
+    <div class="panel" id="mineFav"></div>
+    <div class="panel" id="mineNote"></div>
+    <div class="panel">
+      <h3>数据备份</h3>
+      <button class="ghostbtn" id="exportBtn">导出 JSON 备份</button>
+      <button class="ghostbtn" id="importBtn">导入恢复（JSON）</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+      <button class="ghostbtn" id="clearDemoBtn">清空示例数据</button>
+      <button class="ghostbtn danger" id="clearAllBtn">清空全部数据（不可恢复）</button>
+      <div class="hint">数据保存在你当前手机浏览器本地（localStorage），换设备或不清理浏览器不会丢。建议偶尔导出 JSON 备份一份。</div>
+    </div>
+    <div class="hint" style="text-align:center; margin-bottom:20px;">
+      安卓添加到桌面：浏览器打开本页 → 菜单（⋮）→「添加到主屏幕」→ 即可像 App 一样使用。
+    </div>
+  </section>
+
+</div>
+
+<!-- 底部导航 -->
+<div class="nav" id="nav">
+  <button data-tab="learn" class="on">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M4 5l8 5 8-5"/></svg>
+    学脉
+  </button>
+  <button data-tab="quiz">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3 3-3"/><circle cx="12" cy="12" r="9"/></svg>
+    测验
+  </button>
+  <button data-tab="feel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l2-6 3 14 3-9 2 4h5"/></svg>
+    触感
+  </button>
+  <button data-tab="mine">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+    我的
+  </button>
+</div>
+
+<!-- 详情弹层 -->
+<div class="mask" id="mask">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ 静态数据：二十八脉 ============ */
+const PULSES = [
+ {id:1,name:"浮",py:"fú",cat:"浮",feel:"轻取即得，重按稍减而不空，如水上漂木。",host:"多见于表证；浮而无力亦可见于虚阳外越。",diff:"与洪、芤、革、濡同属浮位，须辨有力无力与形质。",verse:"浮脉为阳表病居，迟风数热紧寒拘。"},
+ {id:2,name:"洪",py:"hóng",cat:"浮",feel:"脉体阔大，来盛去衰，如波涛汹涌。",host:"多见于阳明气分热盛。",diff:"浮大有力为洪；浮大中空为芤；浮而搏指中空外坚为革。",verse:"洪脉来时拍拍然，去衰来盛似波澜。"},
+ {id:3,name:"芤",py:"kōu",cat:"浮",feel:"浮大中空，如按葱管。",host:"多见于失血、伤阴。",diff:"浮大无力中空为芤；浮而搏指外坚中空为革。",verse:"芤形浮大软如葱，边实中空血丧中。"},
+ {id:4,name:"革",py:"gé",cat:"浮",feel:"浮而搏指，中空外坚，如按鼓皮。",host:"多见于亡血、失精、半产、漏下。",diff:"革为浮弦中空；芤为浮大中空无力。",verse:"革脉形如按鼓皮，浮弦中空外坚奇。"},
+ {id:5,name:"濡",py:"rú",cat:"浮",feel:"浮而细软，如絮浮水。",host:"多见于虚证、湿证。",diff:"浮细软为濡；沉细软为弱；浮大中空为芤。",verse:"濡脉浮小细软柔，水面浮绵力不禁。"},
+ {id:6,name:"散",py:"sàn",cat:"浮",feel:"浮散无根，至数不齐，如杨花散漫。",host:"多见于元气离散，属危候。",diff:"散为浮而无根；濡为浮而细软有根。",verse:"散似杨花散漫飞，去来无定至难齐。"},
+ {id:7,name:"沉",py:"chén",cat:"沉",feel:"轻取不应，重按始得，如石投水。",host:"多见于里证。",diff:"沉而无力为弱；沉实大弦长为牢；推筋着骨为伏。",verse:"沉脉重手按始得，如石投水必下沉。"},
+ {id:8,name:"伏",py:"fú",cat:"沉",feel:"重按推筋着骨始得，甚则伏而不见。",host:"多见于邪闭、厥证、痛极。",diff:"伏为沉之极；沉为轻取不应。",verse:"伏脉推筋着骨寻，指间裁动隐然深。"},
+ {id:9,name:"牢",py:"láo",cat:"沉",feel:"沉而实大弦长，坚牢不移。",host:"多见于阴寒内盛、疝气、癥积。",diff:"牢为沉实大弦长；实脉浮沉皆有力。",verse:"牢脉沉实大弦长，疝癥寒积苦沉强。"},
+ {id:10,name:"弱",py:"ruò",cat:"沉",feel:"沉而细软。",host:"多见于气血不足。",diff:"沉细软为弱；浮细软为濡。",verse:"弱脉极软沉细，气血俱虚弱可知。"},
+ {id:11,name:"迟",py:"chí",cat:"迟",feel:"一息三至，来去极慢。",host:"多见于寒证（有力为实寒，无力为虚寒）。",diff:"迟为一息三至；缓为一息四至；涩为往来艰涩。",verse:"迟脉一息不三至，尺中无力为虚寒。"},
+ {id:12,name:"缓",py:"huǎn",cat:"迟",feel:"一息四至，来去怠缓。",host:"多见于湿病、脾虚；平人亦可有和缓之象。",diff:"缓为一息四至；迟为一息三至。",verse:"缓脉阿阿四至通，柳梢袅袅飐轻风。"},
+ {id:13,name:"涩",py:"sè",cat:"迟",feel:"往来艰涩，如轻刀刮竹，三五不调。",host:"多见于精伤、血少、气滞、血瘀。",diff:"涩为艰涩不流利；滑为流利如珠。",verse:"涩脉蹇滞轻刀刮，病蚕食叶慢而艰。"},
+ {id:14,name:"结",py:"jié",cat:"迟",feel:"缓而时止，止无定数。",host:"多见于阴盛气结、寒痰、血瘀。",diff:"结为缓止无定数；代为止有定数；促为数止。",verse:"结脉缓止无常数，阴盛气结寒痰瘀。"},
+ {id:15,name:"数",py:"shù",cat:"数",feel:"一息五至以上，来去急促。",host:"多见于热证（有力为实热，无力为虚热）。",diff:"数为一息五至；疾为一息七八至；促为数而时止。",verse:"数脉一息六至来，热证阳盛必相催。"},
+ {id:16,name:"疾",py:"jí",cat:"数",feel:"一息七八至，脉来急疾。",host:"多见于阳极阴竭，属危候。",diff:"疾为数之极；数为一息五至。",verse:"疾为急疾七八至，阳极阴竭势可危。"},
+ {id:17,name:"促",py:"cù",cat:"数",feel:"数而时止，止无定数。",host:"多见于阳盛实热、气血痰食停滞。",diff:"促为数止无定数；结为缓止；代为止有定数。",verse:"促脉数止无定数，阳盛实热壅聚成。"},
+ {id:18,name:"动",py:"dòng",cat:"数",feel:"脉短如豆，滑数有力，多见于关部。",host:"多见于痛证、惊证。",diff:"动为短滑数；滑为流利长；数为至数快。",verse:"动脉摇摇数在关，无头无尾豆形团。"},
+ {id:19,name:"虚",py:"xū",cat:"虚",feel:"举之无力，按之空豁，应指松软。",host:"多见于气血两虚。",diff:"虚为大软无力；微为极细极软；弱为沉细软。",verse:"虚脉浮大软无力，气血空虚脉乃虚。"},
+ {id:20,name:"微",py:"wēi",cat:"虚",feel:"极细极软，似有似无，按之欲绝。",host:"多见于气血大虚、阳气衰微。",diff:"微为极细似无；细为细如线应指明显。",verse:"微脉极细软如无，气血大虚阳气虚。"},
+ {id:21,name:"细",py:"xì",cat:"虚",feel:"脉细如线，应指明显。",host:"多见于气血两虚、湿证。",diff:"细为线状应指；微为极软似无；弱为沉细软。",verse:"细脉如线常应指，气血两虚湿侵脾。"},
+ {id:22,name:"代",py:"dài",cat:"虚",feel:"动而中止，止有定数，良久方来。",host:"多见于脏气衰微；亦可见于痛、惊、妊娠。",diff:"代为止有定数；结、促止无定数。",verse:"代脉中止有定数，脏衰惊痛亦能生。"},
+ {id:23,name:"短",py:"duǎn",cat:"虚",feel:"首尾俱短，不及本位。",host:"多见于气病（气虚、气郁）。",diff:"短为两头缩；长为两头超。",verse:"短脉两头缩不及，气郁气虚证可参。"},
+ {id:24,name:"实",py:"shí",cat:"实",feel:"举按皆有力，来去俱盛。",host:"多见于实证。",diff:"实为浮沉皆有力；牢为沉实大弦长；紧为紧张如索。",verse:"实脉浮沉有力强，实证方宜用此详。"},
+ {id:25,name:"滑",py:"huá",cat:"实",feel:"往来流利，如盘走珠，应指圆滑。",host:"多见于痰饮、食滞、实热；平人、妊娠亦可见。",diff:"滑为流利；涩为艰涩；动为短滑数。",verse:"滑脉如珠替替然，痰食实热妊中年。"},
+ {id:26,name:"弦",py:"xián",cat:"实",feel:"端直以长，如按琴弦。",host:"多见于肝胆病、痛证、痰饮；平人春令亦见。",diff:"弦为端直长；紧为紧张如索；长为超本位。",verse:"弦脉端直如琴弦，肝胆痰痛饮相牵。"},
+ {id:27,name:"紧",py:"jǐn",cat:"实",feel:"紧张有力，如转绳索，左右弹指。",host:"多见于寒证、痛证、宿食。",diff:"紧为如索紧张；弦为端直如弦；实为来去盛。",verse:"紧脉来往如索绳，寒束诸疼宿食停。"},
+ {id:28,name:"长",py:"cháng",cat:"实",feel:"首尾端直，超过本位，如循长竿。",host:"多见于阳证、热证、实证；平人亦可见。",diff:"长为超本位；短为不及本位；弦为端直如弦。",verse:"长脉迢迢超本位，阳热实证势悠长。"}
+];
+const CATS = ["全部","浮","沉","迟","数","虚","实","滑","涩"];
+
+/* 触感参数：bpm=脉率(次/分) dur=每次搏动振动时长(ms，体现脉力) shape=节律形态 */
+const HAPTIC = {
+  1:{bpm:75,dur:70,shape:"light"}, 2:{bpm:75,dur:170,shape:"surge"}, 3:{bpm:75,dur:120,shape:"hollow"},
+  4:{bpm:70,dur:150,shape:"hollow"}, 5:{bpm:72,dur:55,shape:"thin"}, 6:{bpm:70,dur:90,shape:"scatter"},
+  7:{bpm:75,dur:110,shape:"deep"}, 8:{bpm:72,dur:180,shape:"deep"}, 9:{bpm:70,dur:200,shape:"deep"},
+  10:{bpm:72,dur:60,shape:"thin"}, 11:{bpm:50,dur:100,shape:"slow"}, 12:{bpm:62,dur:100,shape:"slow"},
+  13:{bpm:58,dur:90,shape:"rough"}, 14:{bpm:56,dur:90,shape:"interrupt"}, 15:{bpm:95,dur:90,shape:"fast"},
+  16:{bpm:130,dur:80,shape:"fast"}, 17:{bpm:100,dur:90,shape:"interrupt"}, 18:{bpm:95,dur:120,shape:"short"},
+  19:{bpm:75,dur:70,shape:"thin"}, 20:{bpm:70,dur:40,shape:"faint"}, 21:{bpm:75,dur:60,shape:"thin"},
+  22:{bpm:72,dur:100,shape:"interrupt"}, 23:{bpm:75,dur:80,shape:"short"}, 24:{bpm:78,dur:160,shape:"normal"},
+  25:{bpm:78,dur:100,shape:"round"}, 26:{bpm:76,dur:110,shape:"taut"}, 27:{bpm:82,dur:120,shape:"tight"},
+  28:{bpm:78,dur:120,shape:"normal"}
+};
+const SHAPE_LABEL = {
+  light:"轻取即得(浮位)", surge:"洪大来盛去衰", hollow:"浮大中空(芤革)", thin:"细弱无力", scatter:"散乱无根",
+  deep:"沉深着骨", slow:"迟缓(迟/缓)", fast:"急促(数/疾)", rough:"艰涩不畅", interrupt:"时止(结代促)",
+  short:"短促不满", normal:"和缓有力", round:"流利如珠(滑)", taut:"端直如弦", tight:"紧张如索(紧)", faint:"极微欲绝"
+};
+
+/* ============ 存储 ============ */
+const STORE_KEY = "wb_28mai_v1";
+let data = loadData();
+let ui = { tab:"learn", filter:"", cat:"全部", detail:null, quiz:null };
+
+function loadData(){
+  try{
+    const r = localStorage.getItem(STORE_KEY);
+    if(r){ const o = JSON.parse(r); if(o && o.picks) return o; }
+  }catch(e){}
+  return defaults();
+}
+function saveData(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }catch(e){}
+  updateSync();
+}
+function defaults(){
+  const ids = PULSES.map(p=>p.id);
+  // 简单洗牌取3个今日推荐
+  for(let i=ids.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [ids[i],ids[j]]=[ids[j],ids[i]]; }
+  return {
+    favorites: [],
+    notes: { "3":"示例笔记：芤脉主失血、伤阴，可结合《伤寒论》《金匮要略》中失血诸证来理解。" },
+    review: [14],
+    quiz: { total:0, correct:0, history:[] },
+    streak: { last:"", count:0 },
+    studyLog: {},
+    picks: ids.slice(0,3)
+  };
+}
+function updateSync(){ document.getElementById("syncTag").textContent = "本地存储"; }
+
+/* ============ 工具 ============ */
+function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+function getPulse(id){ return PULSES.find(p=>p.id===id); }
+function isFav(id){ return data.favorites.indexOf(id)>=0; }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("on"); setTimeout(()=>t.classList.remove("on"),1600); }
+
+/* 波形示意（仅示意脉位/脉率/脉力特征，非真实脉象） */
+function waveSVG(p){
+  const W=300,H=120,mid=60;
+  let bias=0,amp=28,freq=0.18;
+  switch(p.cat){
+    case "浮": bias=-18; amp=22; break;
+    case "沉": bias=20; amp=20; break;
+    case "迟": freq=0.10; amp=30; break;
+    case "数": freq=0.32; amp=30; break;
+    case "虚": amp=11; break;
+    case "实": amp=44; break;
+    case "滑": freq=0.24; amp=26; break;
+    case "涩": freq=0.15; amp=24; break;
+  }
+  const pts=[]; const step=4;
+  for(let x=0;x<=W;x+=step){
+    let y=mid+bias;
+    let v=Math.sin(x*freq)*amp;
+    if(p.cat==="涩" && (Math.floor(x/26)%2===1)) v*=0.35;
+    if(p.cat==="散") v*= (0.4+Math.random()*0.6);
+    y+=v;
+    pts.push([x, y]);
+  }
+  let d="M "+pts[0][0]+" "+pts[0][1].toFixed(1);
+  for(let i=1;i<pts.length;i++){ d+=" L "+pts[i][0]+" "+pts[i][1].toFixed(1); }
+  const baseY = mid + (p.cat==="浮"? -18 : p.cat==="沉"? 20 : 0);
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'
+    +'<line x1="0" y1="'+baseY+'" x2="'+W+'" y2="'+baseY+'" stroke="#e3dccb" stroke-width="1" stroke-dasharray="4 4"/>'
+    +'<path d="'+d+'" fill="none" stroke="#b5341f" stroke-width="2.4" stroke-linejoin="round"/>'
+    +'</svg>';
+}
+
+/* ============ 渲染：今日 ============ */
+function renderToday(){
+  const box = document.getElementById("todayBox");
+  const t = todayStr();
+  const streak = data.streak.count || 0;
+  const studied = data.studyLog[t] || 0;
+  const reviewList = (data.review||[]).map(getPulse).filter(Boolean);
+  let html = '<div class="row">'
+    +'<div class="stat"><div class="n">'+streak+'</div><div class="l">连续学习(天)</div></div>'
+    +'<div class="stat"><div class="n">'+studied+'</div><div class="l">今日温习(条)</div></div>'
+    +'<div class="stat"><div class="n">'+(data.favorites.length)+'</div><div class="l">已收藏</div></div>'
+    +'</div>';
+  html += '<div class="picks"><div class="ttl">今日推荐 · 点一点开始学</div>';
+  (data.picks||[]).forEach(id=>{
+    const p=getPulse(id); if(!p) return;
+    html += '<span class="pickchip" data-pick="'+id+'">'+p.name+'脉 · '+p.cat+'类</span>';
+  });
+  html += '</div>';
+  if(reviewList.length){
+    html += '<div class="review"><div class="ttl">待复习（往期测验易错）</div>';
+    reviewList.forEach(p=>{ html += '<div class="item" data-pick="'+p.id+'">· '+p.name+'脉 — 点此回顾</div>'; });
+    html += '</div>';
+  }
+  box.innerHTML = html;
+  box.querySelectorAll("[data-pick]").forEach(el=>{
+    el.addEventListener("click",()=> openDetail(parseInt(el.getAttribute("data-pick"))));
+  });
+}
+
+/* ============ 渲染：学脉列表 ============ */
+function renderLearn(){
+  const listBox = document.getElementById("listBox");
+  const catBox = document.getElementById("catBox");
+  // 分类
+  catBox.innerHTML = "";
+  CATS.forEach(c=>{
+    const b=document.createElement("div");
+    b.className="cat"+(ui.cat===c?" on":"");
+    b.textContent=c;
+    b.addEventListener("click",()=>{ ui.cat=c; renderLearn(); });
+    catBox.appendChild(b);
+  });
+  // 过滤
+  const f = ui.filter.trim().toLowerCase();
+  let arr = PULSES.filter(p=>{
+    if(ui.cat!=="全部" && p.cat!==ui.cat) return false;
+    if(f){
+      const hay = (p.name+p.py+p.cat+p.feel+p.host+p.diff).toLowerCase();
+      if(hay.indexOf(f)<0) return false;
+    }
+    return true;
+  });
+  if(arr.length===0){ listBox.innerHTML='<div class="empty">没有匹配的脉象，换个关键字试试。</div>'; return; }
+  listBox.innerHTML="";
+  arr.forEach(p=>{
+    const fav = isFav(p.id);
+    const card=document.createElement("div");
+    card.className="pcard";
+    card.innerHTML = '<div class="star">'+(fav?starSVG(true):starSVG(false))+'</div>'
+      +'<div class="pn">'+p.name+'脉<span class="py">'+p.py+'</span></div>'
+      +'<span class="pc">'+p.cat+'类</span>'
+      +'<div class="pf">'+p.feel+'</div>';
+    card.addEventListener("click",()=> openDetail(p.id));
+    listBox.appendChild(card);
+  });
+}
+function starSVG(filled){
+  return '<svg viewBox="0 0 24 24" fill="'+(filled?"#b5341f":"none")+'" stroke="#b5341f" stroke-width="1.6"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.8 6.6 20l1-6.1L3.2 9.5l6.1-.9z"/></svg>';
+}
+
+/* ============ 渲染：详情 ============ */
+function openDetail(id){
+  const p=getPulse(id); if(!p) return;
+  ui.detail=id;
+  const fav=isFav(id);
+  const note = data.notes[id]||"";
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML =
+    '<button class="x" id="closeSheet">×</button>'
+    +'<h2>'+p.name+'脉</h2>'
+    +'<div class="meta">拼音 '+p.py+'<span class="pc">'+p.cat+'类</span></div>'
+    +'<div class="wavebox">'+waveSVG(p)+'<div class="cap">波形示意 · 仅表现脉位/脉率/脉力特征，非真实脉象</div></div>'
+    +'<div class="block"><div class="bt">脉象特征</div><div class="bd">'+p.feel+'</div></div>'
+    +'<div class="block"><div class="bt">理论主病</div><div class="bd">'+p.host+'</div></div>'
+    +'<div class="block"><div class="bt">相类鉴别</div><div class="bd">'+p.diff+'</div></div>'
+    +(p.verse?'<div class="block"><div class="bt">脉诀</div><div class="bd" style="color:var(--qing)">'+p.verse+'</div></div>':'')
+    +'<div class="block"><div class="bt">我的笔记</div>'
+      +'<textarea class="notein" id="noteIn" placeholder="记下你的理解…">'+note.replace(/</g,"&lt;")+'</textarea></div>'
+    +'<div class="acts">'
+      +'<button class="btn" id="favBtn">'+starSVG(fav)+(fav?' 已收藏':' 收藏')+'</button>'
+      +'<button class="btn primary" id="quizOneBtn">考考我</button>'
+    +'</div>';
+  document.getElementById("mask").classList.add("on");
+  document.getElementById("closeSheet").addEventListener("click",closeDetail);
+  document.getElementById("favBtn").addEventListener("click",()=>{ toggleFav(id); });
+  document.getElementById("quizOneBtn").addEventListener("click",()=>{ closeDetail(); ui.tab="quiz"; switchTab("quiz"); startQuiz([id]); });
+  document.getElementById("noteIn").addEventListener("blur",(e)=>{ data.notes[id]=e.target.value.trim(); saveData(); toast("笔记已保存"); });
+}
+function closeDetail(){ document.getElementById("mask").classList.remove("on"); ui.detail=null; }
+
+function toggleFav(id){
+  const i=data.favorites.indexOf(id);
+  if(i>=0) data.favorites.splice(i,1); else data.favorites.push(id);
+  saveData();
+  renderLearn(); renderMine();
+  if(ui.detail===id) openDetail(id); // 刷新弹层内收藏态
+  toast(isFav(id)?"已收藏":"已取消收藏");
+}
+
+/* ============ 测验 ============ */
+function genQuestions(ids){
+  // ids: 限定脉id数组；为空则全随机
+  let pool = ids && ids.length ? ids.map(getPulse).filter(Boolean) : PULSES.slice();
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  const n = Math.min(5, pool.length);
+  const qs=[];
+  for(let k=0;k<n;k++){
+    const p=pool[k];
+    const type=Math.floor(Math.random()*3);
+    let q, correct, opts, explain;
+    if(type===0){
+      q='「'+p.name+'脉」的脉象特征是？'; correct=p.feel;
+      opts=[p.feel].concat(others(p,"feel",3)); explain="脉象："+p.feel;
+    }else if(type===1){
+      q='「'+p.name+'脉」多见于？（中医理论）'; correct=p.host;
+      opts=[p.host].concat(others(p,"host",3)); explain="理论主病："+p.host;
+    }else{
+      q='下列哪项是「'+p.feel+'」所描述的脉象？'; correct=p.name+"脉";
+      opts=[p.name+"脉"].concat(others(p,"name",3)); explain="答案为「"+p.name+"脉」："+p.feel;
+    }
+    shuffle(opts);
+    qs.push({pid:p.id, q:q, opts:opts, answer:correct, explain:explain});
+  }
+  return qs;
+}
+function others(p, field, n){
+  const arr=PULSES.filter(x=>x.id!==p.id).map(x=> field==="name"? x.name+"脉" : x[field]);
+  shuffle(arr); return arr.slice(0,n);
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function startQuiz(ids){
+  ui.quiz={ qs:genQuestions(ids), idx:0, correct:0, answered:false };
+  renderQuiz();
+}
+function renderQuiz(){
+  const box=document.getElementById("quizBox");
+  if(!ui.quiz){
+    const q=data.quiz;
+    const rate = q.total? Math.round(q.correct/q.total*100):0;
+    box.innerHTML =
+      '<div class="qcard">'
+      +'<div class="qq">温故知新，测测你记住了多少。</div>'
+      +'<div class="ring">'+ringSVG(rate)+'<div class="rt">累计答题 <b>'+q.total+'</b> 题<br>正确率 <b>'+rate+'%</b></div></div>'
+      +'<button class="bigbtn" id="startBtn">开始测验（5题）</button>'
+      +'<button class="ghostbtn" id="startWrongBtn"'+( (data.review&&data.review.length)?'':' style="display:none"')+'>只练易错脉（'+(data.review?data.review.length:0)+'）</button>'
+      +'</div>';
+    document.getElementById("startBtn").addEventListener("click",()=> startQuiz(null));
+    const wb=document.getElementById("startWrongBtn");
+    if(wb) wb.addEventListener("click",()=> startQuiz(data.review.slice()));
+    return;
+  }
+  const q=ui.quiz;
+  if(q.idx>=q.qs.length){ renderQuizResult(); return; }
+  const item=q.qs[q.idx];
+  let html='<div class="qcard"><div class="prog">第 '+(q.idx+1)+' / '+q.qs.length+' 题 · 已对 '+q.correct+'</div>'
+    +'<div class="qq">'+item.q+'</div>';
+  item.opts.forEach((o,i)=>{ html+='<button class="opt" data-o="'+i+'" data-t="'+encodeURIComponent(o)+'">'+o+'</button>'; });
+  html+='<div class="explain" id="explain"></div>'
+    +'<div class="qfooter" id="qfooter"><button class="bigbtn" id="nextBtn">下一题</button></div>'
+    +'</div>';
+  box.innerHTML=html;
+  box.querySelectorAll(".opt").forEach(b=>{
+    b.addEventListener("click",()=> answerQuestion(b));
+  });
+}
+function answerQuestion(btn){
+  const q=ui.quiz; if(q.answered) return; q.answered=true;
+  const item=q.qs[q.idx];
+  const chosen=decodeURIComponent(btn.getAttribute("data-t"));
+  const correct = (chosen===item.answer);
+  if(correct) q.correct++;
+  // 标记按钮
+  const box=document.getElementById("quizBox");
+  box.querySelectorAll(".opt").forEach(b=>{
+    const t=decodeURIComponent(b.getAttribute("data-t"));
+    b.disabled=true;
+    if(t===item.answer) b.classList.add("right");
+    else if(b===btn) b.classList.add("wrong");
+  });
+  const ex=document.getElementById("explain");
+  ex.innerHTML=(correct?'✅ 答对！ ':'❌ 答错。 ')+item.explain;
+  ex.classList.add("on");
+  document.getElementById("qfooter").classList.add("on");
+  document.getElementById("nextBtn").addEventListener("click",()=>{
+    // 记录学习 & 易错
+    const t=todayStr();
+    data.studyLog[t]=(data.studyLog[t]||0)+1;
+    if(!correct){
+      if(data.review.indexOf(item.pid)<0) data.review.push(item.pid);
+    }else{
+      const ri=data.review.indexOf(item.pid); if(ri>=0) data.review.splice(ri,1);
+    }
+    q.idx++; q.answered=false;
+    renderQuiz();
+  });
+  // 连续学习天数
+  updateStreak();
+  saveData();
+}
+function renderQuizResult(){
+  const q=ui.quiz;
+  data.quiz.total += q.qs.length;
+  data.quiz.correct += q.correct;
+  data.quiz.history.push({date:todayStr(), total:q.qs.length, correct:q.correct});
+  saveData();
+  const box=document.getElementById("quizBox");
+  box.innerHTML='<div class="qcard"><div class="qq" style="text-align:center">本轮完成！</div>'
+    +'<div class="ring" style="justify-content:center">'+ringSVG(Math.round(q.correct/q.qs.length*100))+'<div class="rt" style="text-align:center">答对 <b>'+q.correct+'</b> / '+q.qs.length+'</div></div>'
+    +'<button class="bigbtn" id="againBtn">再来一组</button>'
+    +'<button class="ghostbtn" id="backBtn">返回</button></div>';
+  document.getElementById("againBtn").addEventListener("click",()=> startQuiz(null));
+  document.getElementById("backBtn").addEventListener("click",()=>{ ui.quiz=null; renderQuiz(); });
+  ui.quiz=null; // 防止重复累加
+}
+function updateStreak(){
+  const t=todayStr();
+  const s=data.streak;
+  if(s.last===t) return;
+  const y=new Date(); y.setDate(y.getDate()-1);
+  const ystr=y.getFullYear()+"-"+(y.getMonth()+1)+"-"+y.getDate();
+  s.count = (s.last===ystr)? (s.count+1) : 1;
+  s.last=t;
+}
+function ringSVG(pct){
+  const r=38,c=2*Math.PI*r, off=c*(1-pct/100);
+  return '<svg viewBox="0 0 88 88"><circle cx="44" cy="44" r="'+r+'" fill="none" stroke="#e3dccb" stroke-width="8"/>'
+    +'<circle cx="44" cy="44" r="'+r+'" fill="none" stroke="#b5341f" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" transform="rotate(-90 44 44)"/>'
+    +'<text x="44" y="50" text-anchor="middle" font-size="18" fill="#b5341f" font-weight="700">'+pct+'%</text></svg>';
+}
+
+/* ============ 渲染：我的 ============ */
+function renderMine(){
+  // 统计
+  const q=data.quiz;
+  const rate=q.total?Math.round(q.correct/q.total*100):0;
+  document.getElementById("mineStats").innerHTML='<h3>学习统计</h3>'
+    +'<div class="ring">'+ringSVG(rate)+'<div class="rt">累计答题 <b>'+q.total+'</b> 题<br>正确率 <b>'+rate+'%</b><br>连续学习 <b>'+(data.streak.count||0)+'</b> 天</div></div>';
+  // 收藏
+  const favBox=document.getElementById("mineFav");
+  if(data.favorites.length===0){
+    favBox.innerHTML='<h3>我的收藏</h3><div class="hint">还没有收藏。在脉象详情页点「收藏」即可加入。</div>';
+  }else{
+    let h='<h3>我的收藏（'+data.favorites.length+'）</h3>';
+    data.favorites.forEach(id=>{ const p=getPulse(id); if(!p) return;
+      h+='<div class="favitem" data-id="'+id+'"><div><div class="fn">'+p.name+'脉</div><div class="fp">'+p.cat+'类 · '+p.feel.substring(0,16)+'…</div></div>'+starSVG(true)+'</div>';
+    });
+    favBox.innerHTML=h;
+    favBox.querySelectorAll("[data-id]").forEach(el=> el.addEventListener("click",()=> openDetail(parseInt(el.getAttribute("data-id")))));
+  }
+  // 笔记
+  const noteBox=document.getElementById("mineNote");
+  const keys=Object.keys(data.notes).filter(k=>data.notes[k]);
+  if(keys.length===0){
+    noteBox.innerHTML='<h3>我的笔记</h3><div class="hint">在脉象详情页的「我的笔记」里写下理解，会自动保存。</div>';
+  }else{
+    let h='<h3>我的笔记（'+keys.length+'）</h3>';
+    keys.forEach(k=>{ const p=getPulse(parseInt(k)); if(!p) return;
+      h+='<div class="noteitem"><div class="nn" style="cursor:pointer" data-id="'+k+'">'+p.name+'脉</div><div class="nt">'+data.notes[k].replace(/</g,"&lt;")+'</div></div>';
+    });
+    noteBox.innerHTML=h;
+    noteBox.querySelectorAll("[data-id]").forEach(el=> el.addEventListener("click",()=> openDetail(parseInt(el.getAttribute("data-id")))));
+  }
+}
+
+/* ============ 统一刷新 ============ */
+function refreshAll(){
+  renderToday();
+  if(ui.tab==="learn") renderLearn();
+  else if(ui.tab==="quiz") renderQuiz();
+  else if(ui.tab==="feel") renderFeel();
+  else if(ui.tab==="mine") renderMine();
+}
+
+/* ============ 触感学习 ============ */
+let feelState = { cat:"全部", sel:null, playing:false };
+let feelTimer=null, feelReq=null, feelStart=0, feelH=null;
+
+function buildHaptic(p){
+  const h = HAPTIC[p.id];
+  const interval = Math.round(60000/h.bpm);
+  let dur = h.dur;
+  const shape = h.shape;
+  const phrase=[], beats=[];
+  let t=0;
+  const N = (shape==="interrupt" && p.id===22) ? 10 : 6;
+  for(let i=0;i<N;i++){
+    let d=dur, g=interval-dur; if(g<20) g=20;
+    if(shape==="rough"){ d=Math.round(dur*0.85); g=(i%2===1)?Math.round((interval-d)*1.4):Math.round((interval-d)*0.7); }
+    else if(shape==="scatter"){ d=Math.round(dur*(0.5+Math.random()*0.8)); g=Math.round((interval-d)*(0.4+Math.random()*0.9)); }
+    else if(shape==="tight"){ g=Math.round((interval-d)*0.6); }
+    else if(shape==="hollow"){ g=Math.round((interval-d)+interval*0.3); }
+    else if(shape==="faint"){ d=Math.max(26,dur); }
+    else if(shape==="round"){
+      const tail=Math.max(12, interval-d-50);
+      phrase.push(d,22,28,tail);
+      beats.push({t,strong:true}); t+=d+22+28+tail; continue;
+    }
+    else if(shape==="surge"){
+      const d1=Math.round(d*0.45), d2=Math.round(d*0.55);
+      const tail=Math.max(12, interval-d-25);
+      phrase.push(d1,25,d2,tail);
+      beats.push({t,strong:true}); t+=d1+25+d2+tail; continue;
+    }
+    else if(shape==="interrupt"){
+      const drop = (p.id===22) ? (i%5===4) : (Math.random()<0.16 && i>0);
+      if(drop){ phrase.push(0,interval); beats.push({t,strong:false}); t+=interval; continue; }
+    }
+    phrase.push(d,g);
+    beats.push({t,strong:true}); t+=d+g;
+  }
+  return {pattern:phrase, period:t, beats};
+}
+
+function vibe(pattern){
+  if(window.NativeVibe && typeof window.NativeVibe.vibrate === 'function'){
+    try{ window.NativeVibe.vibrate(JSON.stringify(pattern)); return true; }catch(e){}
+  }
+  if(typeof navigator.vibrate === 'function'){ try{ return navigator.vibrate(pattern); }catch(e){ return false; } }
+  return false;
+}
+function vibeStop(){
+  if(window.NativeVibe && typeof window.NativeVibe.stop === 'function'){ try{ window.NativeVibe.stop(); return; }catch(e){} }
+  if('vibrate' in navigator){ try{ navigator.vibrate(0); }catch(e){} }
+}
+function startFeel(p){
+  if(!p) return;
+  if(feelTimer) stopFeel();
+  feelH = buildHaptic(p);
+  feelStart = performance.now();
+  vibe(feelH.pattern);
+  feelTimer = setInterval(()=>{
+    vibe(feelH.pattern);
+  }, feelH.period);
+  feelReq = requestAnimationFrame(feelAnim);
+  setFeelStatus(true);
+}
+function stopFeel(){
+  if(feelTimer){ clearInterval(feelTimer); feelTimer=null; }
+  if(feelReq){ cancelAnimationFrame(feelReq); feelReq=null; }
+  vibeStop();
+  setFeelStatus(false);
+}
+function setFeelStatus(on){
+  feelState.playing=on;
+  const btn=document.getElementById("feelBtn");
+  const meta=document.getElementById("feelMeta");
+  if(btn){ btn.classList.toggle("playing",on); btn.textContent = on? "● 感受中…（松手停止）" : "按住 · 感受脉的节奏"; }
+  if(meta){ meta.textContent = on? "正在振动感受中…" : "按住下方圆钮开始感受"; }
+}
+function feelAnim(){
+  if(!feelH) return;
+  const pos = (performance.now()-feelStart) % feelH.period;
+  let active=0;
+  for(const b of feelH.beats){
+    const dt=pos-b.t;
+    if(dt>=0 && dt< (b.strong?170:1)){ active = b.strong? (1-dt/170)*0.6 : 0; }
+  }
+  const dot=document.getElementById("feelDot");
+  if(dot){ dot.style.transform="scale("+(1+active)+")"; dot.style.opacity=(0.55+active*0.6).toFixed(2); }
+  feelReq=requestAnimationFrame(feelAnim);
+}
+function selectFeel(id){
+  if(feelState.playing) stopFeel();
+  feelState.sel=id;
+  renderFeel();
+}
+function renderFeel(){
+  const st=document.getElementById("feelSupportTop");
+  if(st){
+    if(window.NativeVibe && typeof window.NativeVibe.vibrate==='function'){
+      st.innerHTML='✅ 已接入手机<b>原生振动</b>（APK 模式），红米也能真震。选一种脉→按住感受。';
+      st.style.color='var(--qing)';
+    } else {
+      const hasFn = (typeof navigator.vibrate === 'function');
+      if(!hasFn){
+        st.innerHTML='❌ 振动不支持：当前浏览器（iOS Safari / 微信等内置浏览器）禁用了振动，请改用安卓 Chrome，或安装「二十八脉」APK 版。';
+        st.style.color='var(--zhu)';
+      } else {
+        st.innerHTML='⚠️ <b>红米/小米 HyperOS 系统级静默屏蔽网页振动</b>（权限列表里也找不到振动开关）。网页版在红米上无法震动。<b>唯一解法：安装「二十八脉」安卓 APK 版（原生振动，100% 生效）。</b>';
+        st.style.color='#c47f00';
+      }
+    }
+  }
+  const cb=document.getElementById("feelCatBox");
+  cb.innerHTML="";
+  CATS.forEach(c=>{
+    const b=document.createElement("div");
+    b.className="cat"+(feelState.cat===c?" on":"");
+    b.textContent=c;
+    b.addEventListener("click",()=>{ feelState.cat=c; renderFeel(); });
+    cb.appendChild(b);
+  });
+  const lb=document.getElementById("feelListBox");
+  let arr = PULSES.filter(p=> feelState.cat==="全部"||p.cat===feelState.cat);
+  lb.innerHTML="";
+  arr.forEach(p=>{
+    const card=document.createElement("div");
+    card.className="pcard";
+    card.innerHTML='<div class="pn">'+p.name+'脉<span class="py">'+p.py+'</span></div><span class="pc">'+p.cat+'类</span><div class="pf">'+p.feel.substring(0,20)+'…</div>';
+    card.addEventListener("click",()=> selectFeel(p.id));
+    lb.appendChild(card);
+  });
+  const sel=document.getElementById("feelSel");
+  if(feelState.sel){
+    const p=getPulse(feelState.sel);
+    const h=HAPTIC[p.id];
+    const forceLabel = h.dur<80 ? "轻" : (h.dur<140 ? "中" : "重");
+    const shapeLabel = SHAPE_LABEL[h.shape]||h.shape;
+    sel.style.display="block";
+    sel.innerHTML =
+      '<div class="fn">'+p.name+'脉 <span style="font-size:13px;color:var(--ink2)">'+p.py+'</span></div>'
+      +'<div class="tags"><span class="tg">脉率 <b>'+h.bpm+'</b> 次/分</span><span class="tg">脉力 <b>'+forceLabel+'</b></span><span class="tg">形态 <b>'+shapeLabel+'</b></span></div>'
+      +'<div class="feel-dot-wrap"><div class="feel-dot" id="feelDot"></div></div>'
+      +'<div class="feel-meta" id="feelMeta">'+(feelState.playing?'正在振动感受中…':'按住下方圆钮开始感受')+'</div>'
+      +'<button class="feel-btn" id="feelBtn">按住 · 感受脉的节奏</button>'
+      +'<div id="feelSupport" class="feel-hint" style="text-align:center;margin-top:4px"></div>'
+      +'<button class="ghostbtn" id="feelTest" style="margin-top:8px">测试一下振动（400毫秒）</button>'
+      +'<div class="feel-loop"><label><input type="checkbox" id="feelLoop"> 连续循环（松手不停）</label></div>'
+      +'<div class="feel-hint">如果按了没感觉：① 确认用的是 <b>Chrome / 小米浏览器</b>，别用微信、QQ 内置浏览器（它们用 WebView，常常禁振动）；② 去手机 <b>设置 → 应用 → 浏览器 → 权限</b> 里允许「振动」；③ 手机没开「静音/勿扰」把振动关掉。闭眼、把手机贴在指尖或掌心，更容易"摸"到快慢与强弱。</div>';
+    bindFeelBtn();
+    updateFeelSupport();
+    document.getElementById("feelTest").addEventListener("click", testVibrate);
+  } else {
+    sel.style.display="none";
+  }
+}
+function bindFeelBtn(){
+  const btn=document.getElementById("feelBtn");
+  const loopChk=document.getElementById("feelLoop");
+  if(!btn) return;
+  btn.onpointerdown=(e)=>{
+    e.preventDefault();
+    if(loopChk && loopChk.checked){
+      if(feelState.playing) stopFeel(); else startFeel(getPulse(feelState.sel));
+    } else {
+      startFeel(getPulse(feelState.sel));
+    }
+  };
+  btn.onpointerup=(e)=>{ if(loopChk && loopChk.checked) return; stopFeel(); };
+  btn.onpointerleave=(e)=>{ if(!loopChk || !loopChk.checked) stopFeel(); };
+  btn.onpointercancel=(e)=>{ if(!loopChk || !loopChk.checked) stopFeel(); };
+}
+function updateFeelSupport(){
+  const el=document.getElementById("feelSupport");
+  if(!el) return;
+  if(window.NativeVibe && typeof window.NativeVibe.vibrate==='function'){
+    el.innerHTML='✅ 已接入手机原生振动（APK 模式），红米也能真震';
+    el.style.color='var(--qing)';
+    return;
+  }
+  const hasFn = (typeof navigator.vibrate === 'function');
+  if(!hasFn){
+    el.innerHTML='❌ 当前浏览器不支持振动（iOS Safari / 微信内置浏览器都禁振动，请用安卓 Chrome 或安装 APK 版）';
+    el.style.color='var(--zhu)';
+  }else{
+    el.innerHTML='⚠️ 红米/小米系统会静默屏蔽网页振动（权限列表里没有振动开关），点了也不震。<b>请安装「二十八脉」APK 版（原生振动）。</b>';
+    el.style.color='#c47f00';
+  }
+}
+function testVibrate(){
+  if(typeof navigator.vibrate !== 'function' && !(window.NativeVibe && window.NativeVibe.vibrate)){ toast("当前环境不支持振动"); return; }
+  const ok = vibe([400]);
+  toast("已调用振动(400ms)。请立刻用手摸手机：有震=可用；没震=仍被屏蔽。返回="+ok);
+}
+
+/* ============ 导航 ============ */
+function switchTab(tab){
+  if(ui.tab==="feel" && tab!=="feel") stopFeel();
+  ui.tab=tab;
+  document.querySelectorAll("#nav button").forEach(b=> b.classList.toggle("on", b.getAttribute("data-tab")===tab));
+  document.querySelectorAll("section").forEach(s=> s.classList.remove("on"));
+  document.getElementById("sec-"+tab).classList.add("on");
+  refreshAll();
+}
+
+/* ============ 备份 ============ */
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="二十八脉备份_"+todayStr()+".json";
+  a.click();
+  toast("已导出备份");
+}
+function importJSON(file){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const o=JSON.parse(e.target.result);
+      if(!o.picks) throw 0;
+      data=o; saveData(); refreshAll();
+      toast("导入成功");
+    }catch(err){ toast("文件格式不正确"); }
+  };
+  reader.readAsText(file);
+}
+function clearDemo(){
+  data.notes={}; data.review=[]; data.favorites=[];
+  saveData(); refreshAll(); toast("示例数据已清空");
+}
+function clearAll(){
+  if(!confirm("确定要清空全部数据吗？\n收藏、笔记、测验记录都会删除，且不可恢复。")) return;
+  if(!confirm("再确认一次：此操作不可恢复，确定清空？")) return;
+  localStorage.removeItem(STORE_KEY);
+  data=defaults(); saveData(); refreshAll(); toast("已全部清空");
+}
+
+/* ============ 初始化（铁律10：单向初始化） ============ */
+function init(){
+  saveData(); // 首次落盘默认数据
+  document.getElementById("nav").querySelectorAll("button").forEach(b=>{
+    b.addEventListener("click",()=> switchTab(b.getAttribute("data-tab")));
+  });
+  document.getElementById("searchInput").addEventListener("input",(e)=>{ ui.filter=e.target.value; renderLearn(); });
+  document.getElementById("mask").addEventListener("click",(e)=>{ if(e.target.id==="mask") closeDetail(); });
+  document.getElementById("exportBtn").addEventListener("click",exportJSON);
+  document.getElementById("importBtn").addEventListener("click",()=> document.getElementById("importFile").click());
+  document.getElementById("importFile").addEventListener("change",(e)=>{ if(e.target.files[0]) importJSON(e.target.files[0]); });
+  document.getElementById("clearDemoBtn").addEventListener("click",clearDemo);
+  document.getElementById("clearAllBtn").addEventListener("click",clearAll);
+  document.addEventListener("visibilitychange",()=>{ if(document.hidden && feelState.playing) stopFeel(); });
+  switchTab("learn");
+}
+document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>
