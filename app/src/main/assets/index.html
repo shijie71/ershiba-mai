@@ -703,7 +703,7 @@ function buildHaptic(p){
 
 function vibe(pattern){
   if(window.NativeVibe && typeof window.NativeVibe.vibrate === 'function'){
-    try{ window.NativeVibe.vibrate(JSON.stringify(pattern)); return true; }catch(e){}
+    try{ return !!window.NativeVibe.vibrate(JSON.stringify(pattern)); }catch(e){}
   }
   if(typeof navigator.vibrate === 'function'){ try{ return navigator.vibrate(pattern); }catch(e){ return false; } }
   return false;
@@ -757,9 +757,14 @@ function selectFeel(id){
 function renderFeel(){
   const st=document.getElementById("feelSupportTop");
   if(st){
-    if(window.NativeVibe && typeof window.NativeVibe.vibrate==='function'){
-      st.innerHTML='✅ 已接入手机<b>原生振动</b>（APK 模式），红米也能真震。选一种脉→按住感受。';
+    const nativeOk = !!(window.NativeVibe && typeof window.NativeVibe.vibrate==='function');
+    const hasVib = nativeOk ? !!window.NativeVibe.hasVibrator() : false;
+    if(nativeOk && hasVib){
+      st.innerHTML='✅ 已接入手机<b>原生振动</b>（APK 模式），设备有振动器，红米也能真震。选一种脉→按住感受。';
       st.style.color='var(--qing)';
+    } else if(nativeOk && !hasVib){
+      st.innerHTML='⚠️ 已接入原生桥，但<b>系统报告本设备无振动器</b>。极少数机型会这样，无法振动。';
+      st.style.color='#c47f00';
     } else {
       const hasFn = (typeof navigator.vibrate === 'function');
       if(!hasFn){
@@ -833,9 +838,12 @@ function bindFeelBtn(){
 function updateFeelSupport(){
   const el=document.getElementById("feelSupport");
   if(!el) return;
-  if(window.NativeVibe && typeof window.NativeVibe.vibrate==='function'){
-    el.innerHTML='✅ 已接入手机原生振动（APK 模式），红米也能真震';
-    el.style.color='var(--qing)';
+  const nativeOk = !!(window.NativeVibe && typeof window.NativeVibe.vibrate==='function');
+  if(nativeOk){
+    const hasVib = !!window.NativeVibe.hasVibrator();
+    el.innerHTML = hasVib ? '✅ 已接入手机原生振动（APK 模式），设备有振动器，红米也能真震'
+                          : '⚠️ 原生桥已接入，但设备报告无振动器';
+    el.style.color = hasVib ? 'var(--qing)' : '#c47f00';
     return;
   }
   const hasFn = (typeof navigator.vibrate === 'function');
@@ -848,9 +856,15 @@ function updateFeelSupport(){
   }
 }
 function testVibrate(){
-  if(typeof navigator.vibrate !== 'function' && !(window.NativeVibe && window.NativeVibe.vibrate)){ toast("当前环境不支持振动"); return; }
+  const nativeOk = !!(window.NativeVibe && typeof window.NativeVibe.vibrate==='function');
+  const hasVib = nativeOk ? !!window.NativeVibe.hasVibrator() : false;
+  if(!nativeOk && typeof navigator.vibrate !== 'function'){ toast("当前环境不支持振动"); return; }
   const ok = vibe([400]);
-  toast("已调用振动(400ms)。请立刻用手摸手机：有震=可用；没震=仍被屏蔽。返回="+ok);
+  let msg = nativeOk
+    ? ("原生桥：设备"+(hasVib?"有振动器":"无振动器")+"，调用返回="+ok)
+    : ("网页API，调用返回="+ok);
+  msg += "。请立刻用手摸手机背面/边框：有震=成功；没震=仍被限制。";
+  toast(msg);
 }
 
 /* ============ 导航 ============ */
