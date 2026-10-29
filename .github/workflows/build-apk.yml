@@ -18,19 +18,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: 手动安装 Android SDK 命令行工具
+      - name: 复用 runner 自带 Android SDK 并补装平台/构建工具
         run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          curl -sL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdtools.zip
-          unzip -q cmdtools.zip -d $ANDROID_HOME/cmdline-tools
-          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-
-      - name: 同意协议并安装平台与构建工具
-        run: |
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
