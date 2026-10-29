@@ -1,6 +1,5 @@
 name: Build APK
 
-# 触发方式：① 推送到 main 自动构建；② 在 Actions 页面手动点 "Run workflow"
 on:
   workflow_dispatch:
   push:
@@ -19,19 +18,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: 安装 Android SDK 命令行工具
-        uses: android-actions/setup-android@v3
-
-      - name: 安装 SDK 组件并同意协议
+      - name: 手动安装 Android SDK 命令行工具
         run: |
-          yes | sdkmanager --licenses || true
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          curl -sL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdtools.zip
+          unzip -q cmdtools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+
+      - name: 同意协议并安装平台与构建工具
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: 用 Gradle 构建 Debug APK
-        uses: gradle/gradle-build-action@v3
-        with:
-          gradle-version: '8.9'
-          arguments: assembleDebug
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: 上传 APK 成品
         uses: actions/upload-artifact@v4
