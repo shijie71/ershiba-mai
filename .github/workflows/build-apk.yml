@@ -1,6 +1,6 @@
 name: Build APK
 
-# 触发方式：① 推送到 main/master 自动构建；② 在 Actions 页面手动点 "Run workflow"
+# 触发方式：① 推送到 main 自动构建；② 在 Actions 页面手动点 "Run workflow"
 on:
   workflow_dispatch:
   push:
@@ -18,6 +18,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: 安装 Android SDK 命令行工具
+        uses: android-actions/setup-android@v3
+
+      - name: 安装 SDK 组件并同意协议
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: 用 Gradle 构建 Debug APK
         uses: gradle/gradle-build-action@v3
