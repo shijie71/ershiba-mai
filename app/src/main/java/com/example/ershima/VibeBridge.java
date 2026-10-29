@@ -82,25 +82,40 @@ public class VibeBridge {
             Vibrator v = vibrator;
             if (v == null || !v.hasVibrator()) return;
 
-            long[] pat = new long[src.length + 1];
-            pat[0] = 0; // 起始前静默等待
-            System.arraycopy(src, 0, pat, 1, src.length);
+            long[] timings;
+            int[] amps;
+            if (src.length == 1) {
+                // 测试模式：单次最大振幅（如 [500]）
+                timings = new long[]{0, Math.max(1, src[0])};
+                amps = new int[]{0, 255};
+            } else if (src.length % 2 == 0) {
+                // 交错格式：[时长, 振幅, 时长, 振幅, ...]（网页 buildHaptic 产出）
+                // 偶数索引=该段时长，奇数索引=该段振幅；振幅 0 才是真正静默（即“停”）
+                int n = src.length / 2;
+                timings = new long[n + 1];
+                amps = new int[n + 1];
+                timings[0] = 0; amps[0] = 0; // 起始前静默等待
+                for (int i = 0; i < src.length; i += 2) {
+                    int k = i / 2 + 1;
+                    timings[k] = Math.max(1, src[i]);
+                    amps[k] = (int) Math.max(0, Math.min(255, src[i + 1]));
+                }
+            } else {
+                // 兼容旧式纯时长 [on, off, on, off, ...]（奇数索引为振动段）
+                timings = new long[src.length + 1];
+                amps = new int[src.length + 1];
+                timings[0] = 0; amps[0] = 0;
+                System.arraycopy(src, 0, timings, 1, src.length);
+                for (int i = 1; i < amps.length; i++) amps[i] = (i % 2 == 1) ? 255 : 0;
+            }
 
             AudioAttributes aa = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ALARM)            // 绕过勿扰/系统静音
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build();
 
-            VibrationEffect effect;
-            if (pat.length == 2) {
-                effect = VibrationEffect.createOneShot(pat[1], 255); // 单次：最大振幅
-            } else {
-                int[] amps = new int[pat.length];
-                for (int i = 0; i < pat.length; i++) amps[i] = 255;  // 全程最大振幅
-                effect = VibrationEffect.createWaveform(pat, amps, -1);
-            }
             v.cancel();
-            v.vibrate(effect, aa);
+            v.vibrate(VibrationEffect.createWaveform(timings, amps, -1), aa);
         } catch (Exception e) {
             // 兜底：无 AudioAttributes 的旧写法（部分老机型新 API 无效）
             try {

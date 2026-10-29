@@ -671,11 +671,15 @@ function buildHaptic(p){
   const interval = Math.round(60000/h.bpm);
   let dur = h.dur;
   const shape = h.shape;
+  // 脉力强弱 -> 振幅(0-255)：dur 越大越有力；微/细等极弱脉额外削弱
+  let ampOn = Math.max(110, Math.min(255, Math.round(100 + (h.dur-40)*1.5)));
+  if(shape==="faint") ampOn = Math.max(60, Math.round(ampOn*0.5));
   const phrase=[], beats=[];
   let t=0;
   const N = (shape==="interrupt" && p.id===22) ? 10 : 6;
   for(let i=0;i<N;i++){
     let d=dur, g=interval-dur; if(g<20) g=20;
+    let a=ampOn;
     if(shape==="rough"){ d=Math.round(dur*0.85); g=(i%2===1)?Math.round((interval-d)*1.4):Math.round((interval-d)*0.7); }
     else if(shape==="scatter"){ d=Math.round(dur*(0.5+Math.random()*0.8)); g=Math.round((interval-d)*(0.4+Math.random()*0.9)); }
     else if(shape==="tight"){ g=Math.round((interval-d)*0.6); }
@@ -683,20 +687,21 @@ function buildHaptic(p){
     else if(shape==="faint"){ d=Math.max(26,dur); }
     else if(shape==="round"){
       const tail=Math.max(12, interval-d-50);
-      phrase.push(d,22,28,tail);
+      const a2=Math.round(a*0.7);
+      phrase.push(d,a, 22,0, 28,a2, tail,0);
       beats.push({t,strong:true}); t+=d+22+28+tail; continue;
     }
     else if(shape==="surge"){
       const d1=Math.round(d*0.45), d2=Math.round(d*0.55);
       const tail=Math.max(12, interval-d-25);
-      phrase.push(d1,25,d2,tail);
+      phrase.push(d1,a, 25,0, d2,a, tail,0);
       beats.push({t,strong:true}); t+=d1+25+d2+tail; continue;
     }
     else if(shape==="interrupt"){
       const drop = (p.id===22) ? (i%5===4) : (Math.random()<0.16 && i>0);
-      if(drop){ phrase.push(0,interval); beats.push({t,strong:false}); t+=interval; continue; }
+      if(drop){ phrase.push(0,0, interval,0); beats.push({t,strong:false}); t+=interval; continue; }
     }
-    phrase.push(d,g);
+    phrase.push(d,a, g,0);
     beats.push({t,strong:true}); t+=d+g;
   }
   return {pattern:phrase, period:t, beats};
@@ -706,7 +711,13 @@ function vibe(pattern){
   if(window.NativeVibe && typeof window.NativeVibe.vibrate === 'function'){
     try{ window.NativeVibe.vibrate(JSON.stringify(pattern)); return true; }catch(e){ return false; }
   }
-  if(typeof navigator.vibrate === 'function'){ try{ return !!navigator.vibrate(pattern); }catch(e){ return false; } }
+  if(typeof navigator.vibrate === 'function'){
+    try{
+      // 网页回退：只取偶数索引（时长）去掉振幅列，交给浏览器原生 on/off 节奏
+      const t = (pattern.length % 2 === 0) ? pattern.filter((_,i)=> i%2===0) : pattern;
+      return !!navigator.vibrate(t);
+    }catch(e){ return false; }
+  }
   return false;
 }
 function vibeStop(){
