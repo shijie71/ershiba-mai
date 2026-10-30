@@ -669,40 +669,67 @@ let feelTimer=null, feelReq=null, feelStart=0, feelH=null;
 function buildHaptic(p){
   const h = HAPTIC[p.id];
   const interval = Math.round(60000/h.bpm);
-  let dur = h.dur;
   const shape = h.shape;
-  // 脉力强弱 -> 振幅(0-255)：dur 越大越有力；微/细等极弱脉额外削弱
-  let ampOn = Math.max(110, Math.min(255, Math.round(100 + (h.dur-40)*1.5)));
-  if(shape==="faint") ampOn = Math.max(60, Math.round(ampOn*0.5));
+  // 脉力强弱 -> 单次“脉冲”强度。核心原则：脉冲要【短促】，静默要【明显】，
+  // 杜绝长振动带来的“一直嗡嗡”，做到“有脉时咚一下、无脉时长静默”。
+  let pulseMs, ampOn;
+  if(h.dur < 80){ pulseMs = 60;  ampOn = 150; }       // 轻（弱脉/细/微/短/薄）
+  else if(h.dur < 140){ pulseMs = 85; ampOn = 200; }  // 中（多数脉）
+  else { pulseMs = 100; ampOn = 255; }                // 重（实/牢/洪/沉实）
+  if(shape==="faint"){ pulseMs = 40; ampOn = 110; }   // 微脉：极轻极短，但仍是一记清晰短脉冲
+  // 静默段下限：确保马达停下、耳朵听清“停”（红米线性马达有惯性，太短会糊成连续）
+  const minSilence = 220;
+
   const phrase=[], beats=[];
   let t=0;
-  const N = (shape==="interrupt" && p.id===22) ? 10 : 6;
+  const N = (shape==="interrupt") ? 10 : 6;
   for(let i=0;i<N;i++){
-    let d=dur, g=interval-dur; if(g<20) g=20;
-    let a=ampOn;
-    if(shape==="rough"){ d=Math.round(dur*0.85); g=(i%2===1)?Math.round((interval-d)*1.4):Math.round((interval-d)*0.7); }
-    else if(shape==="scatter"){ d=Math.round(dur*(0.5+Math.random()*0.8)); g=Math.round((interval-d)*(0.4+Math.random()*0.9)); }
-    else if(shape==="tight"){ g=Math.round((interval-d)*0.6); }
-    else if(shape==="hollow"){ g=Math.round((interval-d)+interval*0.3); }
-    else if(shape==="faint"){ d=Math.max(26,dur); }
-    else if(shape==="round"){
-      const tail=Math.max(12, interval-d-50);
-      const a2=Math.round(a*0.7);
-      phrase.push(d,a, 22,0, 28,a2, tail,0);
-      beats.push({t,strong:true}); t+=d+22+28+tail; continue;
+    if(shape==="round"){
+      // 滑脉：流利如珠 -> 一拍内“两下短促滚珠”，两下之间仅极短缝隙，整拍后长静默
+      const a2 = Math.round(ampOn*0.72);
+      const gMid = 24;
+      const tail = Math.max(minSilence, interval - (pulseMs + gMid + pulseMs));
+      phrase.push(pulseMs, ampOn, gMid, 0, pulseMs, a2, tail, 0);
+      beats.push({t,strong:true}); t += pulseMs+gMid+pulseMs+tail; continue;
     }
-    else if(shape==="surge"){
-      const d1=Math.round(d*0.45), d2=Math.round(d*0.55);
-      const tail=Math.max(12, interval-d-25);
-      phrase.push(d1,a, 25,0, d2,a, tail,0);
-      beats.push({t,strong:true}); t+=d1+25+d2+tail; continue;
+    if(shape==="surge"){
+      // 洪脉：来盛去衰 -> 强主峰 + 弱尾峰，随后长静默
+      const d1 = Math.round(pulseMs*0.6), d2 = pulseMs - d1;
+      const a2 = Math.round(ampOn*0.5);
+      const tail = Math.max(minSilence, interval - (d1 + 26 + d2));
+      phrase.push(d1, ampOn, 26, 0, d2, a2, tail, 0);
+      beats.push({t,strong:true}); t += d1+26+d2+tail; continue;
     }
-    else if(shape==="interrupt"){
-      const drop = (p.id===22) ? (i%5===4) : (Math.random()<0.16 && i>0);
-      if(drop){ phrase.push(0,0, interval,0); beats.push({t,strong:false}); t+=interval; continue; }
+    if(shape==="rough"){
+      // 涩脉：艰涩不畅 -> 主脉冲分前后两截、中间一小顿，体现“滞涩”，随后长静默
+      const d1 = Math.round(pulseMs*0.5), d2 = pulseMs - d1;
+      const tail = Math.max(minSilence, interval - (d1 + 32 + d2));
+      phrase.push(d1, ampOn, 32, 0, d2, Math.round(ampOn*0.8), tail, 0);
+      beats.push({t,strong:true}); t += d1+32+d2+tail; continue;
     }
-    phrase.push(d,a, g,0);
-    beats.push({t,strong:true}); t+=d+g;
+    if(shape==="scatter"){
+      // 散脉：散乱无根 -> 一拍内 2~3 个不等短脉冲，整拍后长静默
+      const k = 2 + (Math.random()<0.5?1:0);
+      let used=0; const seg=[];
+      for(let j=0;j<k;j++){
+        const dp = 24 + Math.round(Math.random()*38);
+        const gp = 16 + Math.round(Math.random()*28);
+        seg.push(dp, ampOn, gp, 0); used += dp+gp;
+      }
+      const tail = Math.max(minSilence, interval - used);
+      seg.push(tail, 0);
+      phrase.push.apply(phrase, seg);
+      beats.push({t,strong:true}); t += used + tail; continue;
+    }
+    if(shape==="interrupt"){
+      // 结/代/促：正常脉冲，但每隔几拍有一整拍“完全不震”，体现“时有一止”
+      const drop = (p.id===22) ? (i%5===4) : (Math.random()<0.18 && i>0 && i<9);
+      if(drop){ phrase.push(0,0, interval, 0); beats.push({t,strong:false}); t+=interval; continue; }
+    }
+    // 默认（含 light/deep/hollow/short/normal/taut/tight/slow/fast/thin）：单脉冲 + 长静默
+    const g = Math.max(minSilence, interval - pulseMs);
+    phrase.push(pulseMs, ampOn, g, 0);
+    beats.push({t,strong:true}); t += pulseMs + g;
   }
   return {pattern:phrase, period:t, beats};
 }
